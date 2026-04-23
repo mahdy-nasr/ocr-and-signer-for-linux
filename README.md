@@ -24,16 +24,41 @@ If PyQt6 fails to start with `qt.qpa.plugin: Could not load the Qt platform plug
 
 First launch creates `~/.local/share/preview_app/signatures/` for the signature library.
 
-## Build a .deb package
+## Packaging (.deb)
+
+### Build a .deb locally
 
 ```bash
 ./packaging/build_deb.sh
 ```
 
-Produces `build/preview-app_<version>_<arch>.deb` (~95 MB — bundles a Python
-virtualenv with all pip dependencies under `/opt/preview-app/`).
+Produces `build/preview-app_<version>_<arch>.deb` (~93 MB — bundles a Python
+virtualenv with all pip dependencies under `/opt/preview-app/`, so the host
+system only needs `python3`, `tesseract-ocr`, and the Qt runtime libs listed
+under Prerequisites).
 
-Install:
+Override the version without editing `pyproject.toml`:
+
+```bash
+VERSION=0.2.0 ./packaging/build_deb.sh
+```
+
+### What the .deb installs
+
+| Path                                              | Contents                                |
+|---------------------------------------------------|-----------------------------------------|
+| `/opt/preview-app/src/`                           | App source                              |
+| `/opt/preview-app/resources/`                     | Cursive fonts, icon, stylesheet         |
+| `/opt/preview-app/venv/`                          | Python virtualenv with pip deps         |
+| `/usr/bin/preview-app`                            | Launcher shell script                   |
+| `/usr/share/applications/preview-app.desktop`     | Menu entry                              |
+| `/usr/share/icons/hicolor/scalable/apps/...svg`   | Scalable app icon                       |
+| `/usr/share/doc/preview-app/copyright`            | Copyright + OFL font license reference  |
+
+User data (signatures, OCR cache) lives in `~/.local/share/preview_app/` and
+`~/.cache/preview_app/` — it survives uninstall/reinstall.
+
+### Install
 
 ```bash
 sudo apt install ./build/preview-app_0.1.0_amd64.deb
@@ -41,6 +66,56 @@ sudo apt install ./build/preview-app_0.1.0_amd64.deb
 
 After install the app is available as the `preview-app` command and shows up
 in your applications menu. Uninstall with `sudo apt remove preview-app`.
+
+### Update an installed .deb
+
+Same version (development iteration) — use `--reinstall`:
+
+```bash
+./packaging/build_deb.sh
+sudo apt install --reinstall ./build/preview-app_0.1.0_amd64.deb
+```
+
+Bumped version — regular install picks up the upgrade:
+
+```bash
+VERSION=0.1.1 ./packaging/build_deb.sh
+sudo apt install ./build/preview-app_0.1.1_amd64.deb
+```
+
+Kill any running `preview-app` process before upgrading.
+
+### CI / GitHub Actions
+
+Three workflows under `.github/workflows/`:
+
+- **`ci.yml`** — runs the full test suite (`smoke_test`, `jpg_repro`,
+  `sign_flow_test`, `sig_io_test`) on push to `main`, on every PR, and via
+  manual dispatch. Matrix covers Python 3.11 and 3.12. Uses
+  `QT_QPA_PLATFORM=offscreen` so no X server is needed.
+- **`package.yml`** — builds the `.deb` on push/PR/manual dispatch across
+  `ubuntu-22.04` and `ubuntu-24.04` runners, uploading each as a workflow
+  artifact (retention: 14 days).
+- **`release.yml`** — triggered by tag pushes matching `v*` (or manual
+  dispatch with an explicit version). Flow: test → build on both runners →
+  attach the `.deb`s to a GitHub Release with auto-generated release notes.
+
+Cut a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+…or from the GitHub UI: **Actions → Release → Run workflow**, enter a
+version.
+
+The release artifacts are named per runner so users can pick the right one:
+
+```
+preview-app_0.1.0_ubuntu-22.04_amd64.deb    # built on 22.04, works on 22.04+
+preview-app_0.1.0_ubuntu-24.04_amd64.deb    # built on 24.04
+```
 
 ## Features
 

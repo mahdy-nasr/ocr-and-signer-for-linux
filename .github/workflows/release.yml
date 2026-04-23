@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (without leading v)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test before release
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install apt prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng \
+            libxcb-cursor0 libgl1 libegl1 libfontconfig1 \
+            libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          python tests/smoke_test.py
+          python tests/jpg_repro.py
+          python tests/sign_flow_test.py
+          python tests/sig_io_test.py
+
+  build:
+    name: Build .deb (Ubuntu ${{ matrix.runner }})
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-22.04, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3 python3-venv python3-pip dpkg-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve version
+        id: ver
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            # Tag push: strip leading 'v' if present
+            VERSION="${REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Build .deb
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: ./packaging/build_deb.sh
+
+      - name: Rename .deb with runner suffix
+        env:
+          RUNNER: ${{ matrix.runner }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          cd build
+          for f in preview-app_${VERSION}_*.deb; do
+            [ -f "$f" ] || continue
+            arch="${f##*_}"
+            arch="${arch%.deb}"
+            mv "$f" "preview-app_${VERSION}_${RUNNER}_${arch}.deb"
+          done
+          ls -la
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-deb-${{ matrix.runner }}
+          path: build/*.deb
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all .debs
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-deb-*
+          merge-multiple: true
+
+      - name: Show artifacts
+        run: ls -la dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: dist/*.deb
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
