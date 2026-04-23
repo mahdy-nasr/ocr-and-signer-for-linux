@@ -60,6 +60,8 @@ jobs:
         runner: [ubuntu-22.04, ubuntu-24.04]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref }}
 
       - name: Install build prerequisites
         run: |
@@ -91,7 +93,7 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
         run: ./packaging/build_deb.sh
 
-      - name: Rename .deb with runner suffix
+      - name: Rename .deb with runner suffix + stable alias
         env:
           RUNNER: ${{ matrix.runner }}
           VERSION: ${{ steps.ver.outputs.version }}
@@ -101,7 +103,10 @@ jobs:
             [ -f "$f" ] || continue
             arch="${f##*_}"
             arch="${arch%.deb}"
+            # Versioned artifact (for humans who want to tell versions apart)
             mv "$f" "preview-app_${VERSION}_${RUNNER}_${arch}.deb"
+            # Stable-name copy so /releases/latest/download/<name>.deb always works
+            cp "preview-app_${VERSION}_${RUNNER}_${arch}.deb" "preview-app_${RUNNER}_${arch}.deb"
           done
           ls -la
 
@@ -120,6 +125,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve tag name
+        id: tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG="v$INPUT_VERSION"
+          else
+            # Tag push: ref_name already is the tag (e.g. v0.1.0)
+            TAG="$REF_NAME"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
       - name: Download all .debs
         uses: actions/download-artifact@v4
         with:
@@ -133,8 +153,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
           files: dist/*.deb
           generate_release_notes: true
           fail_on_unmatched_files: true
