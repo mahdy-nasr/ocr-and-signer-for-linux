@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "preview-app"
+version = "0.1.0"
+description = "Linux viewer for images and PDFs with OCR text selection and PDF signing"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = [
+    "PyQt6>=6.6",
+    "PyMuPDF>=1.24",
+    "Pillow>=10.2",
+    "pytesseract>=0.3.10",
+]
+
+[project.scripts]
+preview-app = "preview_app.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+preview_app = ["../resources/**/*"]

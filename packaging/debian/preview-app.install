@@ -1,0 +1,2 @@
+resources/* usr/share/preview-app/
+packaging/debian/preview-app.desktop usr/share/applications/

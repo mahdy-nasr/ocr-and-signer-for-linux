@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Preview App
+GenericName=Image & PDF Viewer
+Comment=View images and PDFs, select text via OCR, sign PDFs
+Exec=preview-app %F
+Icon=preview-app
+Terminal=false
+Categories=Graphics;Office;Viewer;
+MimeType=application/pdf;image/png;image/jpeg;image/bmp;image/tiff;image/webp;image/gif;
