@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFontDatabase, QGuiApplication
+from PyQt6.QtGui import QFontDatabase, QGuiApplication, QIcon
 from PyQt6.QtWidgets import QApplication
 
 from . import config
@@ -41,7 +41,12 @@ def main(argv: list[str] | None = None) -> int:
 
     app = QApplication(argv)
     app.setApplicationName("Preview App")
+    app.setDesktopFileName("preview-app")
     app.setOrganizationName("preview_app")
+
+    icon_path = config.resources_dir() / "icons" / "preview-app.svg"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     families = _register_fonts()
 

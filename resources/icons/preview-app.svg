@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a7dd4"/>
+      <stop offset="1" stop-color="#2c4f9e"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded background tile -->
+  <rect x="4" y="4" width="120" height="120" rx="22" ry="22" fill="url(#bg)"/>
+
+  <!-- document page with folded corner -->
+  <path d="M 30 24 L 84 24 L 102 42 L 102 106 L 30 106 Z"
+        fill="#ffffff" stroke="#b8c1d1" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M 84 24 L 102 42 L 84 42 Z"
+        fill="#dce3ef" stroke="#b8c1d1" stroke-width="1.2" stroke-linejoin="round"/>
+
+  <!-- highlighted text line (represents OCR text selection) -->
+  <rect x="40" y="48" width="44" height="8" rx="2" fill="#ffd757" opacity="0.78"/>
+
+  <!-- faint text lines -->
+  <rect x="40" y="61" width="52" height="4" rx="1.5" fill="#b8c1cf"/>
+  <rect x="40" y="70" width="48" height="4" rx="1.5" fill="#b8c1cf"/>
+  <rect x="40" y="79" width="40" height="4" rx="1.5" fill="#b8c1cf"/>
+
+  <!-- signature curl at bottom of page -->
+  <path d="M 40 96 C 48 84, 56 102, 64 92 S 78 84, 86 96 C 90 98, 92 96, 94 94"
+        fill="none" stroke="#1a3f8a" stroke-width="3.4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

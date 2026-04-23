@@ -24,6 +24,24 @@ If PyQt6 fails to start with `qt.qpa.plugin: Could not load the Qt platform plug
 
 First launch creates `~/.local/share/preview_app/signatures/` for the signature library.
 
+## Build a .deb package
+
+```bash
+./packaging/build_deb.sh
+```
+
+Produces `build/preview-app_<version>_<arch>.deb` (~95 MB — bundles a Python
+virtualenv with all pip dependencies under `/opt/preview-app/`).
+
+Install:
+
+```bash
+sudo apt install ./build/preview-app_0.1.0_amd64.deb
+```
+
+After install the app is available as the `preview-app` command and shows up
+in your applications menu. Uninstall with `sudo apt remove preview-app`.
+
 ## Features
 
 - **Image viewer** — open PNG/JPG/etc., select text within the image via OCR, copy with `Ctrl+C`.
