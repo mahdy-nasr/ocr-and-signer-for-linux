@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import fitz
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from .ocr import Word, ocr_words
 
@@ -28,6 +28,16 @@ class PdfDoc:
         self._mode_cache: dict[int, PageMode] = {}
         self._words_cache: dict[tuple[int, int], list[Word]] = {}
         self._render_cache: dict[tuple[int, int], PageRender] = {}
+        self._baked = False
+
+    def bake(self) -> None:
+        # Flatten AcroForm widgets & annotations into page content so they
+        # can't render over later signatures and the form becomes frozen.
+        if self._baked:
+            return
+        self._doc.bake(annots=True, widgets=True)
+        self._baked = True
+        self.invalidate_caches()
 
     @property
     def page_count(self) -> int:
@@ -52,6 +62,7 @@ class PdfDoc:
         pix = page.get_pixmap(matrix=matrix, alpha=False)
         mode = "RGB" if pix.n < 4 else "RGBA"
         img = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+        _overlay_widget_placeholders(img, page, dpi)
         render = PageRender(image=img, dpi=dpi, width_px=pix.width, height_px=pix.height)
         self._render_cache[key] = render
         return render
@@ -128,3 +139,30 @@ class PdfDoc:
         target = Path(path)
         self._doc.save(str(target), garbage=4, deflate=True)
         return target
+
+
+def _overlay_widget_placeholders(img: Image.Image, page: fitz.Page, dpi: int) -> None:
+    # PyMuPDF's pixmap does not draw the "please fill me in" highlight that
+    # Evince/Firefox/Adobe render for empty AcroForm widgets. Composite a
+    # translucent grey box so placement in the app matches what viewers show.
+    widgets = list(page.widgets() or [])
+    if not widgets:
+        return
+    scale = dpi / 72.0
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for w in widgets:
+        r = w.rect
+        box = (
+            int(r.x0 * scale),
+            int(r.y0 * scale),
+            int(r.x1 * scale),
+            int(r.y1 * scale),
+        )
+        draw.rectangle(box, fill=(210, 210, 210, 120), outline=(150, 150, 150, 200), width=1)
+    if img.mode != "RGBA":
+        rgba = img.convert("RGBA")
+        rgba.alpha_composite(overlay)
+        img.paste(rgba.convert(img.mode))
+    else:
+        img.alpha_composite(overlay)

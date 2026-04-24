@@ -15,6 +15,10 @@ def apply_signature(
     dpi: int,
 ) -> None:
     """Insert a signature PNG onto a page. rect_px is in rendered-pixel coords."""
+    # Flatten widgets/annotations first so nothing renders on top of the
+    # signature in other viewers. Signing also locks further form edits,
+    # which matches the intent of signing.
+    doc.bake()
     page = doc.get_page(page_index)
     scale = 72.0 / dpi
     x0, y0, x1, y1 = rect_px
